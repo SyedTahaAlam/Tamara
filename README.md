@@ -1,24 +1,83 @@
-This is a Kotlin Multiplatform project targeting Android, iOS.
+# Tamara KMP SDK (Pragmatic Reference Implementation)
 
-* [/iosApp](./iosApp/iosApp) contains an iOS application. Even if you’re sharing your UI with Compose Multiplatform,
-  you need this entry point for your iOS app. This is also where you should add SwiftUI code for your project.
+This repository now contains a Kotlin Multiplatform Tamara SDK prototype with two new modules:
 
-* [/shared](./shared/src) is for code that will be shared across your Compose Multiplatform applications.
-  It contains several subfolders:
-  - [commonMain](./shared/src/commonMain/kotlin) is for code that’s common for all targets.
-  - Other folders are for Kotlin code that will be compiled for only the platform indicated in the folder name.
-    For example, if you want to use Apple’s CoreCrypto for the iOS part of your Kotlin app,
-    the [iosMain](./shared/src/iosMain/kotlin) folder would be the right place for such calls.
-    Similarly, if you want to edit the Desktop (JVM) specific part, the [jvmMain](./shared/src/jvmMain/kotlin)
-    folder is the appropriate location.
+- `:tamara-core` – core API, models, config, gateway contracts, result/error/event types, URL matching, widget eligibility.
+- `:tamara-ui` – Compose Multiplatform UI (`TamaraInstalmentWidget`, checkout screen, bottom-sheet wrapper, and platform `TamaraCheckoutView` expect/actual).
 
-### Running the apps
+The existing sample app (`:shared` + `:androidApp` + `iosApp`) is retained and wired to demonstrate SDK usage.
 
-Use the run configurations provided by the run widget in your IDE's toolbar. You can also use these commands and options:
+## Implemented Public API (current scope)
 
-- Android app: `./gradlew :androidApp:assembleDebug`
-- iOS app: open the [/iosApp](./iosApp) directory in Xcode and run it from there.
+### Core
+- `TamaraEnvironment`, `TamaraCountry`, `TamaraLocale`
+- `TamaraConfig`
+- `TamaraSdk` (injectable instance)
+- `Tamara.configure(...)` singleton entry point
+- `TamaraResult` and `TamaraError` sealed types
+- Serializable models:
+  - `TamaraOrder`, `TamaraOrderItem`, `TamaraMoney`
+  - `TamaraCheckoutSession`, `TamaraCheckoutStatus`, `TamaraSessionStatus`
+  - `TamaraCheckoutRedirectUrls`
+- `TamaraBackendGateway` interface for merchant backend integration
+- `TamaraEventListener` + `TamaraEvent` sealed events
+- `TamaraUrlMatcher`
+- Widget eligibility evaluator/state:
+  - `TamaraWidgetEligibilityEvaluator`
+  - `TamaraInstalmentWidgetState`
 
----
+### UI
+- `TamaraInstalmentWidget(...)`
+- `TamaraCheckoutScreen(...)`
+- `TamaraCheckoutBottomSheet(...)`
+- `expect/actual TamaraCheckoutView(...)`
+  - Android actual uses `WebView`
+  - iOS actual uses `WKWebView`
 
-Learn more about [Kotlin Multiplatform](https://www.jetbrains.com/help/kotlin-multiplatform-dev/get-started.html)…
+## Sample App Demo
+
+The sample configures Tamara with a mock `SampleTamaraBackendGateway`, renders widget eligibility, and launches checkout in a bottom sheet.
+
+> **Assumption note:** The Tamara docs site is unavailable in this environment, so backend/network calls are intentionally modeled via `TamaraBackendGateway` and a mock implementation. No real Tamara API call payloads were invented.
+
+## Quick Start (SDK usage)
+
+```kotlin
+val result = Tamara.configure(
+    config = TamaraConfig(
+        publicKey = "pk_test_xxx",
+        environment = TamaraEnvironment.SANDBOX,
+        country = TamaraCountry.SA,
+        locale = TamaraLocale.EN
+    ),
+    backendGateway = myBackendGateway,
+    eventListener = TamaraEventListener { event -> println(event) }
+)
+```
+
+Then render:
+
+```kotlin
+TamaraInstalmentWidget(order = order)
+```
+
+And launch checkout with a created `TamaraCheckoutSession`:
+
+```kotlin
+TamaraCheckoutBottomSheet(
+    visible = true,
+    onDismissRequest = {},
+    session = session,
+    redirectUrls = TamaraCheckoutRedirectUrls(
+        successUrl = "https://merchant/success",
+        cancelUrl = "https://merchant/cancel",
+        failureUrl = "https://merchant/failure"
+    )
+)
+```
+
+## Docs
+
+- Integration guide: `docs/INTEGRATION_GUIDE.md`
+- SDK parity checklist: `docs/PARITY_CHECKLIST.md`
+- Changelog: `CHANGELOG.md`
